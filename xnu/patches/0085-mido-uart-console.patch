@@ -1,0 +1,166 @@
+diff -ruN /tmp/mido-patch-base/pexpert/arm/pe_fiq.c /tmp/mido-xnu-working/pexpert/arm/pe_fiq.c
+--- a/pexpert/arm/pe_fiq.c	2026-10-27 10:17:26.046186267 +0100
++++ b/pexpert/arm/pe_fiq.c	2026-10-27 10:02:30.706222790 +0100
+@@ -263,10 +263,12 @@
+ 		uint32_t group = mido_gic_read(mido_gicd_base, MIDO_GICD_IGROUPR);
+ 		group |= 0xffffffffU;
+ 		mido_gic_write(mido_gicd_base, MIDO_GICD_IGROUPR, group);
+-		mido_gic_write(mido_gicd_base, MIDO_GICD_IPRIORITYR,
++		mido_gic_write(mido_gicd_base,
++		    MIDO_GICD_IPRIORITYR + (MIDO_GIC_IPI_SGI & ~3U),
++		    0xa0a0a0a0U);
++		mido_gic_write(mido_gicd_base,
++		    MIDO_GICD_IPRIORITYR + (MIDO_GIC_VTIMER_INTID & ~3U),
+ 		    0xa0a0a0a0U);
+-		mido_gic_write(mido_gicd_base, MIDO_GICD_ITARGETSR,
+-		    0x01010101U);
+ 		mido_gic_write(mido_gicd_base, MIDO_GICD_ISENABLER,
+ 		    (1U << MIDO_GIC_IPI_SGI) |
+ 		    (1U << MIDO_GIC_VTIMER_INTID));
+diff -ruN /tmp/mido-patch-base/pexpert/arm/pe_serial.c /tmp/mido-xnu-working/pexpert/arm/pe_serial.c
+--- a/pexpert/arm/pe_serial.c	2026-10-27 10:17:26.045725935 +0100
++++ b/pexpert/arm/pe_serial.c	2026-10-27 10:17:06.423873027 +0100
+@@ -99,6 +99,74 @@
+  * but the data protection on the structs prevents it. */
+ static bool serial_do_transmit = 1;
+ 
++#if defined(MIDO)
++static vm_offset_t mido_uart_base;
++static vm_offset_t mido_gcc_base;
++
++static inline uint32_t
++mido_uart_read(uint32_t offset)
++{
++	return *((volatile uint32_t *)(mido_uart_base + offset));
++}
++
++static inline void
++mido_uart_write(uint32_t offset, uint32_t value)
++{
++	*((volatile uint32_t *)(mido_uart_base + offset)) = value;
++}
++
++static unsigned int
++mido_uart_transmit_ready(void)
++{
++	return (mido_uart_read(MIDO_UART_SR) & MIDO_UART_SR_TXRDY) != 0;
++}
++
++static void
++mido_uart_transmit_data(uint8_t value)
++{
++	mido_uart_write(MIDO_UART_TF, value);
++}
++
++static unsigned int
++mido_uart_receive_ready(void)
++{
++	return (mido_uart_read(MIDO_UART_SR) & MIDO_UART_SR_RXRDY) != 0;
++}
++
++static uint8_t
++mido_uart_receive_data(void)
++{
++	return (uint8_t)mido_uart_read(MIDO_UART_RF);
++}
++
++static void
++mido_uart_init(void)
++{
++	if (mido_gcc_base != 0) {
++		volatile uint32_t *ahb =
++		    (volatile uint32_t *)(mido_gcc_base + MIDO_GCC_BLSP1_AHB_CBCR);
++		volatile uint32_t *apps =
++		    (volatile uint32_t *)(mido_gcc_base + MIDO_GCC_UART1_APPS_CBCR);
++		*ahb |= 1U;
++		*apps |= 1U;
++	}
++	mido_uart_write(MIDO_UART_CR, 0);
++	mido_uart_write(MIDO_UART_MR1, 0);
++	mido_uart_write(MIDO_UART_MR2, 0x30);
++	mido_uart_write(MIDO_UART_CSR, MIDO_UART_CSR_115200);
++	mido_uart_write(MIDO_UART_CR, MIDO_UART_CR_RX_EN | MIDO_UART_CR_TX_EN);
++}
++
++SECURITY_READ_ONLY_LATE(static struct pe_serial_functions)
++    mido_uart_serial_functions = {
++	.init = mido_uart_init,
++	.transmit_ready = mido_uart_transmit_ready,
++	.transmit_data = mido_uart_transmit_data,
++	.receive_ready = mido_uart_receive_ready,
++	.receive_data = mido_uart_receive_data,
++	.device = SERIAL_MIDO_UART
++};
++#endif /* MIDO */
+ 
+ /**
+  * Used to track if all IRQs have been initialized. Each bit of this variable
+@@ -892,6 +960,10 @@
+ 	vm_offset_t     soc_base;
+ 	uintptr_t const *reg_prop;
+ 	uint32_t const  *prop_value __unused = NULL;
++#if defined(MIDO)
++	uint32_t mido_uart_requested = 0;
++#endif
++
+ 	struct pe_serial_functions *fns = gPESF;
+ 
+ 	/**
+@@ -924,6 +996,17 @@
+ 
+ 	fbcon_probe();
+ 
++#if defined(MIDO)
++	if (PE_parse_boot_argn("mido_uart", &mido_uart_requested,
++	    sizeof(mido_uart_requested)) && mido_uart_requested != 0) {
++		mido_uart_base = ml_io_map(MIDO_UART_BASE, MIDO_UART_SIZE);
++		mido_gcc_base = ml_io_map(MIDO_GCC_BASE, MIDO_GCC_SIZE);
++		if (mido_uart_base != 0 && mido_gcc_base != 0) {
++			register_serial_functions(&mido_uart_serial_functions);
++		}
++	}
++#endif /* MIDO */
++
+ #ifdef PI3_UART
+ 	if (SecureDTFindEntry("name", "gpio", &entryP) == kSuccess) {
+ 		SecureDTGetProperty(entryP, "reg", (void const **)&reg_prop, &prop_size);
+diff -ruN /tmp/mido-patch-base/pexpert/pexpert/arm/protos.h /tmp/mido-xnu-working/pexpert/pexpert/arm/protos.h
+--- a/pexpert/pexpert/arm/protos.h	2026-10-27 10:17:26.045994409 +0100
++++ b/pexpert/pexpert/arm/protos.h	2026-10-27 10:16:34.386160820 +0100
+@@ -51,6 +51,7 @@
+ 	SERIAL_PI3_UART=0x4,
+ 	SERIAL_VMAPPLE_UART=0x8,
+ 	SERIAL_DCC_UART=0x10,
++	SERIAL_MIDO_UART=0x40,
+ 	SERIAL_SWEET_FBCON=0x20
+ } serial_device_t;
+ 
+diff -ruN /tmp/mido-patch-base/pexpert/pexpert/arm64/MIDO.h /tmp/mido-xnu-working/pexpert/pexpert/arm64/MIDO.h
+--- a/pexpert/pexpert/arm64/MIDO.h	2026-10-27 10:17:26.046088906 +0100
++++ b/pexpert/pexpert/arm64/MIDO.h	2026-10-27 10:14:40.077239353 +0100
+@@ -34,6 +34,25 @@
+ #define MIDO_GIC_CTLR_ENABLEGRP0 0x1
+ #define MIDO_GIC_CTLR_ENABLEGRP1 0x2
+ 
++#define MIDO_UART_BASE 0x078af000ULL
++#define MIDO_UART_SIZE 0x200ULL
++#define MIDO_GCC_BASE 0x01800000ULL
++#define MIDO_GCC_SIZE 0x80000ULL
++#define MIDO_GCC_BLSP1_AHB_CBCR 0x1008
++#define MIDO_GCC_UART1_APPS_CBCR 0x203c
++#define MIDO_UART_MR1 0x00
++#define MIDO_UART_MR2 0x04
++#define MIDO_UART_CSR 0xa0
++#define MIDO_UART_SR 0xa4
++#define MIDO_UART_CR 0xa8
++#define MIDO_UART_TF 0x100
++#define MIDO_UART_RF 0x100
++#define MIDO_UART_SR_RXRDY (1U << 0)
++#define MIDO_UART_SR_TXRDY (1U << 2)
++#define MIDO_UART_CR_RX_EN (1U << 0)
++#define MIDO_UART_CR_TX_EN (1U << 2)
++#define MIDO_UART_CSR_115200 0xff
++
+ #define __ARM_ARCH__ 8
+ #define __ARM_VMSA__ 8
+ #define __ARM_VFP__ 4

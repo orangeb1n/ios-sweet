@@ -9,6 +9,17 @@
  SWEET_PTHREAD_ROOT = $(SRCROOT)/bsd/pthread/sweet_libpthread
  SWEET_PTHREAD_INC = -I$(SWEET_PTHREAD_ROOT) -I$(SWEET_PTHREAD_ROOT)/private -I$(SWEET_PTHREAD_ROOT)/include
  sweet_pthread_init.o_INCFLAGS = $(SWEET_PTHREAD_INC)
+--- a/bsd/sweet_hfs/sweet_hfs_compat.h	2026-10-26 20:38:15.000000000 +0100
++++ b/bsd/sweet_hfs/sweet_hfs_compat.h	2026-10-27 08:01:21.183627099 +0100
+@@ -19,7 +19,7 @@
+ #undef NAMEDSTREAMS
+ #undef FIFO
+ #undef HFS_COMPRESSION
+-#include "core/kext-config.h"
++#include "kext-config.h"
+ 
+ /* Built in, not a loadable kext (see sweet_hfs_iokit.c). */
+ #define OSKextGetCurrentLoadTag sweet_hfs_current_load_tag
 --- a/config/MASTER.arm64.mido	1970-01-01 01:00:00.000000000 +0100
 +++ b/config/MASTER.arm64.mido	2026-10-26 21:10:04.522104803 +0100
 @@ -0,0 +1,129 @@

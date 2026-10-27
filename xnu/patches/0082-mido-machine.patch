@@ -212,6 +212,35 @@
  	cbz		w10, Ltrylock_dequeue_success
  
  	mov		x0, #-1			// Failed
+--- a/osfmk/arm64/machine_routines.c	2026-10-26 20:38:15.000000000 +0100
++++ b/osfmk/arm64/machine_routines.c	2026-10-27 08:19:32.589963056 +0100
+@@ -954,7 +954,7 @@
+ 	const boolean_t cpus_boot_arg_present = PE_parse_boot_argn("cpus", &cpu_boot_arg, sizeof(cpu_boot_arg));
+ 	const boolean_t cpumask_boot_arg_present = PE_parse_boot_argn("cpumask", &cpumask_boot_arg, sizeof(cpumask_boot_arg));
+ 
+-#if defined(SWEET)
++#if defined(SWEET) || defined(MIDO)
+ 	/* Opt in to SMP: cpus=N (N <= SWEET_SMP_MAX_CPUS; cores 6-7 are the A76s). */
+ 	if (!cpus_boot_arg_present || cpu_boot_arg == 0) {
+ 		cpu_boot_arg = 1;
+@@ -1087,7 +1087,7 @@
+ 		}
+ #endif
+ 
+-#if defined(SWEET)
++#if defined(SWEET) || defined(MIDO)
+ 		/* Aff1 encodes the core on SM7150, not an Apple cluster ID. */
+ 		cpu->die_cluster_id = (int)ml_readprop(child, "die-cluster-id", 0);
+ 		cpu->cluster_core_id = (int)ml_readprop(child, "cluster-core-id", cpu->phys_id >> 8);
+@@ -2180,7 +2180,7 @@
+ 	return dec;
+ }
+ 
+-#if defined(SWEET)
++#if defined(SWEET) || defined(MIDO)
+ /*
+  * sweet: arm_vm_init() calls this unconditionally; Apple's definition (it
+  * enters the PPL/monitor) ships only in the closed per-SoC library. There is
 --- a/osfmk/arm64/proc_reg.h	2026-10-26 20:38:14.000000000 +0100
 +++ b/osfmk/arm64/proc_reg.h	2026-10-26 21:10:04.571451007 +0100
 @@ -205,7 +205,7 @@

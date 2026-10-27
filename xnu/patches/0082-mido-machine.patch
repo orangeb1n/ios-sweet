@@ -232,8 +232,8 @@
  
  # Headers installed into System.framework/PrivateHeaders (userspace internal SDK only).
 --- a/pexpert/pexpert/arm64/MIDO.h	1970-01-01 01:00:00.000000000 +0100
-+++ b/pexpert/pexpert/arm64/MIDO.h	2026-10-26 21:10:04.525945311 +0100
-@@ -0,0 +1,26 @@
++++ b/pexpert/pexpert/arm64/MIDO.h	2026-10-27 07:40:30.173482101 +0100
+@@ -0,0 +1,27 @@
 +/*
 + * Experimental Qualcomm MSM8953 configuration for the Redmi Note 4
 + * Snapdragon (mido). This header intentionally contains only CPU and
@@ -254,6 +254,7 @@
 +#define __ARM_COHERENT_CACHE__ 1
 +#define __ARM_DEBUG__ 7
 +#define __ARM64_PMAP_SUBPAGE_L1__ 1
++#define __ARM_16K_PG__ 1
 +
 +#ifndef ASSEMBLER
 +#define MIDO_UART

@@ -21,7 +21,7 @@
  /* Built in, not a loadable kext (see sweet_hfs_iokit.c). */
  #define OSKextGetCurrentLoadTag sweet_hfs_current_load_tag
 --- a/config/MASTER.arm64.mido	1970-01-01 01:00:00.000000000 +0100
-+++ b/config/MASTER.arm64.mido	2026-10-26 21:10:04.522104803 +0100
++++ b/config/MASTER.arm64.mido	2026-10-27 08:10:37.723789442 +0100
 @@ -0,0 +1,129 @@
 +#
 +# mido (Redmi Note 4 Snapdragon, MSM8953): the sweet master verbatim.
@@ -43,7 +43,7 @@
 +#
 +# Unlike sweet's own file this one is created last, from the fully patched
 +# MASTER.arm64.sweet, so it already carries every later addition: mockfs ramdisk
-+# root, sweet_hfs, bindfs and the stubbed ext resolver.
++# root, bindfs and the stubbed ext resolver.
 +#
 +# Mach Operating System
 +# Copyright (c) 1986 Carnegie-Mellon University
@@ -70,7 +70,7 @@
 +#  BSD_RELEASE =    [ BSD_BASE ]
 +#  BSD_DEV =        [ BSD_BASE config_vnguard ]
 +#  BSD_DEBUG =      [ BSD_BASE config_vnguard ]
-+#  FILESYS_BASE =   [ devfs fdesc fifo mockfs sweet_hfs fs_compression config_protect config_mnt_rootsnap config_rosv_startup config_mount_vm config_mount_prebootrecovery config_basesystemroot config_fse quota namedstreams config_imgsrc_access config_triggers config_searchfs config_volfs config_appledouble nullfs bindfs config_mnt_suid config_firmlinks config_dataless_files config_union_mounts config_file_leases ]
++#  FILESYS_BASE =   [ devfs fdesc fifo mockfs fs_compression config_protect config_mnt_rootsnap config_rosv_startup config_mount_vm config_mount_prebootrecovery config_basesystemroot config_fse quota namedstreams config_imgsrc_access config_triggers config_searchfs config_volfs config_appledouble nullfs bindfs config_mnt_suid config_firmlinks config_dataless_files config_union_mounts config_file_leases ]
 +#  FILESYS_RELEASE= [ FILESYS_BASE ]
 +#  FILESYS_DEV =    [ FILESYS_BASE config_iocount_trace ]
 +#  FILESYS_DEBUG =  [ FILESYS_BASE config_iocount_trace ]

@@ -213,8 +213,8 @@
  
  	mov		x0, #-1			// Failed
 --- a/osfmk/arm64/machine_routines.c	2026-10-26 20:38:15.000000000 +0100
-+++ b/osfmk/arm64/machine_routines.c	2026-10-27 08:19:32.589963056 +0100
-@@ -954,7 +954,7 @@
++++ b/osfmk/arm64/machine_routines.c	2026-10-27 08:27:55.670283677 +0100
+@@ -954,13 +954,13 @@
  	const boolean_t cpus_boot_arg_present = PE_parse_boot_argn("cpus", &cpu_boot_arg, sizeof(cpu_boot_arg));
  	const boolean_t cpumask_boot_arg_present = PE_parse_boot_argn("cpumask", &cpumask_boot_arg, sizeof(cpumask_boot_arg));
  
@@ -223,6 +223,14 @@
  	/* Opt in to SMP: cpus=N (N <= SWEET_SMP_MAX_CPUS; cores 6-7 are the A76s). */
  	if (!cpus_boot_arg_present || cpu_boot_arg == 0) {
  		cpu_boot_arg = 1;
+ 	}
+-	if (cpu_boot_arg > SWEET_SMP_MAX_CPUS) {
+-		cpu_boot_arg = SWEET_SMP_MAX_CPUS;
++	if (cpu_boot_arg > MAX_CPUS) {
++		cpu_boot_arg = MAX_CPUS;
+ 	}
+ #endif
+ 
 @@ -1087,7 +1087,7 @@
  		}
  #endif

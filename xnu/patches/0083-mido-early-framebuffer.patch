@@ -1,0 +1,156 @@
+--- a/osfmk/arm64/sweet_early.c
++++ b/osfmk/arm64/sweet_early.c
+@@ -141,3 +141,118 @@
+ 	__asm__ volatile("dsb sy" ::: "memory");
+ }
+ #endif /* SWEET */
++
++
++#if defined(MIDO)
++#include <stdint.h>
++
++#define MIDO_EARLY_FB ((volatile uint8_t *)(uintptr_t)0x90001000)
++#define MIDO_EARLY_WIDTH 1080u
++#define MIDO_EARLY_HEIGHT 1920u
++#define MIDO_EARLY_STRIDE (MIDO_EARLY_WIDTH * 3u)
++#define MIDO_EARLY_SCALE 2u
++#define MIDO_EARLY_CELL_W (5u * MIDO_EARLY_SCALE)
++#define MIDO_EARLY_CELL_H (7u * MIDO_EARLY_SCALE)
++#define MIDO_EARLY_COLS (MIDO_EARLY_WIDTH / MIDO_EARLY_CELL_W)
++#define MIDO_EARLY_ROWS ((MIDO_EARLY_HEIGHT - 32u) / MIDO_EARLY_CELL_H)
++
++static unsigned int mido_early_row, mido_early_col;
++static unsigned int mido_early_disabled;
++
++static const uint8_t mido_font[37][7] = {
++	[0] = {0x1e, 0x05, 0x05, 0x1e, 0x14, 0x14, 0x1e},
++	[1] = {0x1c, 0x12, 0x12, 0x1c, 0x12, 0x12, 0x1c},
++	[2] = {0x1e, 0x10, 0x10, 0x1c, 0x10, 0x10, 0x1e},
++	[3] = {0x1c, 0x12, 0x12, 0x12, 0x12, 0x12, 0x1c},
++	[4] = {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f},
++	[5] = {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x10},
++	[6] = {0x0e, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0e},
++	[7] = {0x11, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11},
++	[8] = {0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x1f},
++	[9] = {0x07, 0x02, 0x02, 0x02, 0x12, 0x12, 0x0c},
++	[10] = {0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11},
++	[11] = {0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f},
++	[12] = {0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11},
++	[13] = {0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11},
++	[14] = {0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e},
++	[15] = {0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10},
++	[16] = {0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d},
++	[17] = {0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11},
++	[18] = {0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e},
++	[19] = {0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04},
++	[20] = {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e},
++	[21] = {0x11, 0x11, 0x11, 0x11, 0x11, 0x0a, 0x04},
++	[22] = {0x11, 0x11, 0x11, 0x15, 0x15, 0x1b, 0x11},
++	[23] = {0x11, 0x0a, 0x04, 0x04, 0x04, 0x0a, 0x11},
++	[24] = {0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04},
++	[25] = {0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f},
++	[26] = {0x0e, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0e},
++	[27] = {0x04, 0x0c, 0x04, 0x04, 0x04, 0x04, 0x0e},
++	[28] = {0x0e, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1f},
++	[29] = {0x1f, 0x02, 0x04, 0x02, 0x01, 0x11, 0x0e},
++	[30] = {0x02, 0x06, 0x0a, 0x12, 0x1f, 0x02, 0x02},
++	[31] = {0x1f, 0x10, 0x1e, 0x01, 0x01, 0x11, 0x0e},
++	[32] = {0x06, 0x08, 0x10, 0x1e, 0x11, 0x11, 0x0e},
++	[33] = {0x1f, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08},
++	[34] = {0x0e, 0x11, 0x11, 0x0e, 0x11, 0x11, 0x0e},
++	[35] = {0x0e, 0x11, 0x11, 0x0f, 0x01, 0x02, 0x0c},
++	[36] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
++};
++
++static unsigned int mido_glyph(char c)
++{
++	if (c >= 'A' && c <= 'Z') return (unsigned int)(c - 'A');
++	if (c >= '0' && c <= '9') return 26u + (unsigned int)(c - '0');
++	return 36u;
++}
++
++static void mido_put_pixel(unsigned int x, unsigned int y, uint8_t r, uint8_t g, uint8_t b)
++{
++	volatile uint8_t *p = MIDO_EARLY_FB + y * MIDO_EARLY_STRIDE + x * 3u;
++	p[0] = r; p[1] = g; p[2] = b;
++}
++
++static void mido_clear_row(void)
++{
++	for (unsigned int y = 0; y < MIDO_EARLY_CELL_H; y++)
++		for (unsigned int x = 0; x < MIDO_EARLY_WIDTH; x++)
++			mido_put_pixel(x, mido_early_row * MIDO_EARLY_CELL_H + y, 0, 16, 32);
++}
++
++static void mido_putc(char c)
++{
++	if (mido_early_disabled) return;
++	if (c == '\n' || mido_early_col >= MIDO_EARLY_COLS) {
++		mido_early_col = 0;
++		mido_early_row = (mido_early_row + 1u) % MIDO_EARLY_ROWS;
++		mido_clear_row();
++		if (c == '\n') return;
++	}
++	const uint8_t *glyph = mido_font[mido_glyph(c)];
++	for (unsigned int gy = 0; gy < 7; gy++)
++		for (unsigned int sy = 0; sy < MIDO_EARLY_SCALE; sy++)
++			for (unsigned int gx = 0; gx < 5; gx++)
++				for (unsigned int sx = 0; sx < MIDO_EARLY_SCALE; sx++)
++					mido_put_pixel(mido_early_col * MIDO_EARLY_CELL_W + gx * MIDO_EARLY_SCALE + sx,
++					    mido_early_row * MIDO_EARLY_CELL_H + gy * MIDO_EARLY_SCALE + sy,
++					    (glyph[gy] & (1u << (4u - gx))) ? 255 : 0,
++					    (glyph[gy] & (1u << (4u - gx))) ? 255 : 16,
++					    (glyph[gy] & (1u << (4u - gx))) ? 255 : 32);
++	mido_early_col++;
++}
++
++void sweet_early_mark(unsigned int stage, const char *label)
++{
++	if (mido_early_disabled) return;
++	for (unsigned int x = stage * 48u; x < (stage + 1u) * 48u; x++)
++		for (unsigned int y = MIDO_EARLY_HEIGHT - 32u; y < MIDO_EARLY_HEIGHT; y++)
++			mido_put_pixel(x, y, 0, 255, (uint8_t)(stage * 12u));
++	mido_putc('S'); mido_putc('T'); mido_putc('A'); mido_putc('G'); mido_putc('E'); mido_putc(' ');
++	mido_putc((char)('0' + (stage % 10u))); mido_putc(':'); mido_putc(' ');
++	while (*label) mido_putc(*label++);
++	mido_putc('\n');
++	__asm__ volatile("dsb sy" ::: "memory");
++}
++
++void sweet_early_disable(void) { mido_early_disabled = 1; }
++#endif /* MIDO */
+--- a/osfmk/arm64/sweet_early.h
++++ b/osfmk/arm64/sweet_early.h
+@@ -6,7 +6,7 @@
+ #include <stdarg.h>
+ #include <stdint.h>
+ 
+-#if defined(SWEET)
++#if defined(SWEET) || defined(MIDO)
+ void sweet_early_mark(unsigned int stage, const char *label);
+ void sweet_early_putc(char c);
+ void sweet_early_panic(const char *fmt, va_list *args);
+--- a/osfmk/arm64/start.s
++++ b/osfmk/arm64/start.s
+@@ -678,15 +678,19 @@
+ 	lsr		x5,  x24, #(ARM_TT_L2_SHIFT)
+ 	create_bootstrap_mapping x14, x15, x5, x3, x2, x9, x10, x11, x12, x13
+ 
+-#if defined(SWEET)
++#if defined(SWEET) || defined(MIDO)
+ 	/*
+-	 * Splash framebuffer: one 32MB Normal-NC block in the EXISTING V=P
++	 * Early framebuffer: one 32MB Normal-NC block in the EXISTING V=P
+ 	 * L2 table. Both framebuffer and RAM use L1 index 0; another call to
+ 	 * create_bootstrap_mapping would replace the RAM L2 table.
+ 	 * SWEET uses 16K pages and all bring-up RAM is below 4GB, so the first
+ 	 * V=P L2 page is bootstrap_pagetables + 2*PGBYTES.
+ 	 */
++	#if defined(MIDO)
++	MOV64	x10, 0x90000000
++#else
+ 	MOV64	x10, 0x9c000000
++#endif
+ 	MOV64	x11, (ARM_TTE_TYPE_BLOCK | ARM_TTE_VALID | ARM_TTE_BLOCK_SH(SH_OUTER_MEMORY) | ARM_TTE_BLOCK_ATTRINDX(CACHE_ATTRINDX_WRITECOMB) | ARM_TTE_BLOCK_AF | ARM_TTE_BLOCK_PNX | ARM_TTE_BLOCK_NX)
+ 	orr		x11, x11, x10
+ 	and		x12, x10, #(ARM_TT_L2_INDEX_MASK)

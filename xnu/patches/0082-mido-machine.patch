@@ -260,6 +260,17 @@
  
  /* I-Cache. We don't have detailed spec so we just follow the ARM technical reference. */
  #define MMU_I_CLINE 6
+--- a/osfmk/kern/exception.c	2026-10-26 20:38:15.000000000 +0100
++++ b/osfmk/kern/exception.c	2026-10-27 08:35:40.038210479 +0100
+@@ -820,7 +820,7 @@
+ 	return exception_triage_thread(exception, code, codeCnt, thread);
+ }
+ 
+-#if defined(ARM64_BOARD_CONFIG_SWEET)
++#if defined(ARM64_BOARD_CONFIG_SWEET) || defined(ARM64_BOARD_CONFIG_MIDO)
+ #include <vm/vm_shared_region.h>
+ #include <arm/thread.h>
+ 
 --- a/pexpert/pexpert/arm64/board_config.h	2026-10-26 20:38:14.000000000 +0100
 +++ b/pexpert/pexpert/arm64/board_config.h	2026-10-26 21:10:04.571071203 +0100
 @@ -108,6 +108,15 @@

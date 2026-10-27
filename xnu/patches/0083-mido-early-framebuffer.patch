@@ -132,7 +132,36 @@
  void sweet_early_panic(const char *fmt, va_list *args);
 --- a/osfmk/arm64/start.s
 +++ b/osfmk/arm64/start.s
-@@ -678,15 +678,19 @@
+@@ -513,6 +513,28 @@
+ 	mov		x20, x0
+ 	mov		x21, #0
+ 
++#if defined(MIDO)
++	/* Stage 0: red block while MMU is still disabled. */
++	MOV64	x0, 0x90001000
++	mov	x1, #32
++Lmido_stage0_row:
++	mov	x2, #48
++	mov	x3, x0
++Lmido_stage0_pixel:
++	mov	w4, #255
++	strb	w4, [x3, #0]
++	mov	w4, #0
++	strb	w4, [x3, #1]
++	strb	w4, [x3, #2]
++	add	x3, x3, #3
++	subs	x2, x2, #1
++	b.ne	Lmido_stage0_pixel
++	add	x0, x0, #3240
++	subs	x1, x1, #1
++	b.ne	Lmido_stage0_row
++	dsb	sy
++#endif
++
+ #if defined(SWEET)
+ 	/* Stage 0: white 64x32 band, no stack or page tables needed. */
+ 	MOV64	x0, (0x9c000000 + 2368 * 4320)
+@@ -678,15 +700,19 @@
  	lsr		x5,  x24, #(ARM_TT_L2_SHIFT)
  	create_bootstrap_mapping x14, x15, x5, x3, x2, x9, x10, x11, x12, x13
  
@@ -154,3 +183,32 @@
  	MOV64	x11, (ARM_TTE_TYPE_BLOCK | ARM_TTE_VALID | ARM_TTE_BLOCK_SH(SH_OUTER_MEMORY) | ARM_TTE_BLOCK_ATTRINDX(CACHE_ATTRINDX_WRITECOMB) | ARM_TTE_BLOCK_AF | ARM_TTE_BLOCK_PNX | ARM_TTE_BLOCK_NX)
  	orr		x11, x11, x10
  	and		x12, x10, #(ARM_TT_L2_INDEX_MASK)
+@@ -837,6 +863,28 @@
+ 	MSR_SCTLR_EL1_X0
+ 	isb		sy
+ 
++#if defined(MIDO)
++	/* Stage 0b: green block after MMU enable, before arm_init(). */
++	MOV64	x0, 0x90001000 + 48 * 3
++	mov	x1, #32
++Lmido_stage0b_row:
++	mov	x2, #48
++	mov	x3, x0
++Lmido_stage0b_pixel:
++	mov	w4, #0
++	strb	w4, [x3, #0]
++	mov	w4, #255
++	strb	w4, [x3, #1]
++	strb	w4, [x3, #2]
++	add	x3, x3, #3
++	subs	x2, x2, #1
++	b.ne	Lmido_stage0b_pixel
++	add	x0, x0, #3240
++	subs	x1, x1, #1
++	b.ne	Lmido_stage0b_row
++	dsb	sy
++#endif
++
+ #if !VMAPPLE && !defined(SWEET)
+ 	MOV64   x1, SCTLR_EL1_DEFAULT
+ 	cmp		x0, x1

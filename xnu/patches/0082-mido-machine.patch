@@ -152,6 +152,84 @@
 +
 +options   CONFIG_RESLIDE_SHARED_CACHE		# <reslide_shared_cache>
 +options   CONFIG_KERNEL_TBI		# <kernel_tbi>
+--- a/iokit/Kernel/arm/SweetPlatformExpert.cpp	2026-10-26 20:38:15.000000000 +0100
++++ b/iokit/Kernel/arm/SweetPlatformExpert.cpp	2026-10-27 09:31:14.012087986 +0100
+@@ -5,13 +5,13 @@
+  */
+ #include <pexpert/arm64/board_config.h>
+ 
+-#if defined(SWEET)
++#if defined(SWEET) || defined(MIDO)
+ #include <IOKit/IOPlatformExpert.h>
+ #include <IOKit/IODeviceTreeSupport.h>
+ #include <IOKit/IOLib.h>
+ 
+-class SweetPlatformExpert : public IODTPlatformExpert {
+-	OSDeclareDefaultStructors(SweetPlatformExpert);
++class MidoPlatformExpert : public IODTPlatformExpert {
++	OSDeclareDefaultStructors(MidoPlatformExpert);
+ 
+ public:
+ 	bool start(IOService *provider) APPLE_KEXT_OVERRIDE;
+@@ -20,34 +20,34 @@
+ 	const char *excludeList(void) APPLE_KEXT_OVERRIDE;
+ };
+ 
+-OSDefineMetaClassAndStructors(SweetPlatformExpert, IODTPlatformExpert);
++OSDefineMetaClassAndStructors(MidoPlatformExpert, IODTPlatformExpert);
+ 
+ bool
+-SweetPlatformExpert::start(IOService *provider)
++MidoPlatformExpert::start(IOService *provider)
+ {
+-	IOLog("SWEET: starting device-tree platform expert\n");
++	IOLog("MIDO: starting device-tree platform expert\n");
+ 	if (!IODTPlatformExpert::start(provider)) {
+ 		return false;
+ 	}
+ 	registerService();
+-	IOLog("SWEET: platform expert registered\n");
++	IOLog("MIDO: platform expert registered\n");
+ 	return true;
+ }
+ 
+ const char *
+-SweetPlatformExpert::deleteList(void)
++MidoPlatformExpert::deleteList(void)
+ {
+ 	return "()";
+ }
+ 
+ const char *
+-SweetPlatformExpert::excludeList(void)
++MidoPlatformExpert::excludeList(void)
+ {
+ 	return "('chosen', 'defaults', 'cpus', 'options')";
+ }
+ 
+ void
+-SweetPlatformExpert::processTopLevel(IORegistryEntry *root)
++MidoPlatformExpert::processTopLevel(IORegistryEntry *root)
+ {
+ 	/*
+ 	 * The stock implementation requires an Apple NVRAM /options node.
+--- a/iokit/KernelConfigTables.cpp	2026-10-26 20:38:15.000000000 +0100
++++ b/iokit/KernelConfigTables.cpp	2026-10-27 09:31:14.011922110 +0100
+@@ -34,11 +34,11 @@
+ 
+ const char * gIOKernelConfigTables =
+     "("
+-#if defined(ARM64_BOARD_CONFIG_SWEET)
++#if defined(ARM64_BOARD_CONFIG_SWEET) || defined(ARM64_BOARD_CONFIG_MIDO)
+     "   {"
+-    "     'IOClass'         = SweetPlatformExpert;"
++    "     'IOClass'         = MidoPlatformExpert;"
+     "     'IOProviderClass' = IOPlatformExpertDevice;"
+-    "     'IONameMatch'     = 'xiaomi,sweet';"
++    "     'IONameMatch'     = 'qcom,msm8953-qrd-sku3';"
+     "     'IOProbeScore'    = 10000:32;"
+     "   },"
+     "   {"
 --- a/makedefs/MakeInc.def	2026-10-26 20:38:14.000000000 +0100
 +++ b/makedefs/MakeInc.def	2026-10-26 21:10:52.070920521 +0100
 @@ -29,7 +29,7 @@
